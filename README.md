@@ -1,33 +1,3 @@
-# Sheepy Mod Tools
-
-Two separate tools for modding **Sheepy: A Short Adventure**.
-
-## Files
-
-| File | Purpose |
-|------|---------|
-| **[011.py](sandbox:///mnt/agents/output/011.py)** | **011** — Install, enable, apply mods |
-| **[MU110N.py](sandbox:///mnt/agents/output/MU110N.py)** | **MU110N** — Click-to-edit overlay while playing |
-| **[mod_template.json](sandbox:///mnt/agents/output/mod_template.json)** | Template for hand-made mods |
-
----
-
-## 011
-
-```bash
-python 011.py
-```
-
-### Features
-- Install mods from `.zip` or folders
-- Enable/disable mods without deleting
-- Apply all active mods with one click
-- ↩ Restore original game files instantly
-- **Launch MU110N** directly from the UI
-- Launch game (desktop or web)
-
----
-
 ## MU110N (Click-to-Edit)
 
 ```bash
