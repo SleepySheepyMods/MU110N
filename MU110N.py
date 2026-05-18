@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MU110N - Click-to-Edit Overlay
+MU110N - Click-to-Edit Overlay for Sheepy: A Short Adventure
 Works while Sheepy is running. Click any game element to edit its properties.
 """
 
@@ -14,6 +14,7 @@ import subprocess
 #
 GAME_EXE = "Sheepy.exe"
 GAME_HTML = "index.html"
+GAME_WINDOW_TITLE = "Sheepy A Short Adventure"  # Exact window title match
 MODS_DIR = "Mods"
 EDITOR_DIR = "Editor"
 SNAPSHOT_FILE = "editor_snapshot.json"
@@ -29,7 +30,7 @@ class GameScanner:
         self.game_path = None
 
     def find_game(self):
-        """Find Sheepy game window and path"""
+        """Find Sheepy: A Short Adventure game window and path"""
         try:
             import psutil
             for proc in psutil.process_iter(['name', 'pid', 'exe']):
@@ -41,12 +42,12 @@ class GameScanner:
         except ImportError:
             pass
 
-        # Fallback: scan common paths
+        # Fallback: scan common paths for Sheepy
         guesses = [
             Path("."),
             Path.home() / "Games" / "Sheepy",
             Path("C:/Games/Sheepy"),
-            Path("C:/Program Files (x86)/Steam/steamapps/common/Sheepy"),
+            Path("C:/Program Files (x86)/Steam/steamapps/common/Sheepy A Short Adventure"),
         ]
         for path in guesses:
             if (path / GAME_EXE).exists() or (path / GAME_HTML).exists():
@@ -55,17 +56,19 @@ class GameScanner:
         return False
 
     def get_game_rect(self):
-        """Get game window position for overlay alignment"""
+        """Get Sheepy A Short Adventure game window position for overlay alignment"""
         if sys.platform == "win32":
             try:
                 import ctypes
                 from ctypes import wintypes
 
-                # Find window by title
+                # Find window by exact title match
                 def enum_windows_callback(hwnd, extra):
                     text = ctypes.create_unicode_buffer(256)
                     ctypes.windll.user32.GetWindowTextW(hwnd, text, 256)
-                    if 'sheepy' in text.value.lower():
+                    window_title = text.value.lower()
+                    # Only match Sheepy: A Short Adventure
+                    if 'sheepy' in window_title and 'short' in window_title and 'adventure' in window_title:
                         extra.append(hwnd)
                     return True
 
@@ -213,24 +216,39 @@ class ConstructDataParser:
         return []
 
 #
-# OVERLAY WINDOW - Transparent click-through overlay
+# OVERLAY WINDOW - Transparent click-through overlay (SHEEPY ONLY)
 #
 class GameOverlay:
-    def __init__(self, master, game_rect, on_click):
+    def __init__(self, master, game_rect, game_hwnd, on_click):
         self.master = master
         self.game_rect = game_rect # (x, y, w, h)
+        self.game_hwnd = game_hwnd  # Sheepy window handle
         self.on_click = on_click
         self.click_mode = False
+        self.overlay_hwnd = None
 
         # Create overlay window
         self.window = tk.Toplevel(master)
-        self.window.title("Sheepy Editor Overlay")
+        self.window.title("MU110N - Sheepy Editor Overlay")
         self.window.geometry(f"{game_rect[2]}x{game_rect[3]}+{game_rect[0]}+{game_rect[1]}")
 
         # Make transparent and click-through when not in click mode
         self.window.attributes('-alpha', OVERLAY_ALPHA)
         self.window.attributes('-topmost', True)
         self.window.overrideredirect(True)
+
+        # Prevent window from appearing in taskbar
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                from ctypes import wintypes
+                self.overlay_hwnd = int(self.window.winfo_id())
+                # Set window to not show in taskbar
+                GWL_EXSTYLE = -20
+                WS_EX_TOOLWINDOW = 0x00000080
+                ctypes.windll.user32.SetWindowLongW(self.overlay_hwnd, GWL_EXSTYLE, WS_EX_TOOLWINDOW)
+            except:
+                pass
 
         # Canvas for drawing selection boxes
         self.canvas = tk.Canvas(self.window, highlightthickness=0, bg='black')
@@ -257,9 +275,20 @@ class GameOverlay:
         if self.click_mode:
             self.window.attributes('-alpha', 0.1)
             self.status.config(text=" CLICK MODE ACTIVE — Click game objects to edit")
+            # Bring Sheepy to focus
+            self._focus_sheepy()
         else:
             self.window.attributes('-alpha', OVERLAY_ALPHA)
             self.status.config(text="RIGHT-CLICK to toggle click mode | LEFT-CLICK to select")
+
+    def _focus_sheepy(self):
+        """Bring Sheepy window to focus"""
+        if sys.platform == "win32" and self.game_hwnd:
+            try:
+                import ctypes
+                ctypes.windll.user32.SetForegroundWindow(self.game_hwnd)
+            except:
+                pass
 
     def _handle_click(self, event):
         """Handle click on overlay"""
@@ -301,18 +330,17 @@ class GameOverlay:
 
     def _update_loop(self):
         """Keep overlay synced with game window"""
-        if sys.platform == "win32":
+        if sys.platform == "win32" and self.game_hwnd:
             try:
                 import ctypes
                 from ctypes import wintypes
-                if hasattr(self, '_hwnd'):
-                    rect = ctypes.wintypes.RECT()
-                    ctypes.windll.user32.GetWindowRect(self._hwnd, ctypes.byref(rect))
-                    new_geo = f"{rect.right-rect.left}x{rect.bottom-rect.top}+{rect.left}+{rect.top}"
-                    self.window.geometry(new_geo)
+                rect = ctypes.wintypes.RECT()
+                ctypes.windll.user32.GetWindowRect(self.game_hwnd, ctypes.byref(rect))
+                new_geo = f"{rect.right-rect.left}x{rect.bottom-rect.top}+{rect.left}+{rect.top}"
+                self.window.geometry(new_geo)
             except:
                 pass
-        self.window.after(500, self._update_loop)
+        self.window.after(100, self._update_loop)
 
     def hide(self):
         self.window.withdraw()
@@ -322,7 +350,7 @@ class GameOverlay:
         self.window.attributes('-topmost', True)
 
 #
-# PROPERTY EDITOR - Edit object properties
+# PROPERTY EDITOR - Edit object properties (STAYS OPEN)
 #
 class PropertyEditor:
     def __init__(self, master, obj_data, parser, on_save):
@@ -335,8 +363,16 @@ class PropertyEditor:
         self.window.title(f"Edit: {obj_data.get('name', 'Unknown')}")
         self.window.geometry("500x700")
         self.window.transient(master)
+        
+        # Prevent window from closing automatically
+        self.window.protocol("WM_DELETE_WINDOW", self._on_close_attempt)
 
         self._build_ui()
+
+    def _on_close_attempt(self):
+        """Handle close button - ask user before closing"""
+        if messagebox.askyesno("Close Editor", "Close this editor window?"):
+            self.window.destroy()
 
     def _build_ui(self):
         # Header
@@ -370,7 +406,7 @@ class PropertyEditor:
         btn_frame.pack(fill='x', side='bottom')
 
         ttk.Button(btn_frame, text=" Save Changes", command=self._save).pack(side='right', padx=5)
-        ttk.Button(btn_frame, text="↩ Cancel", command=self.window.destroy).pack(side='right', padx=5)
+        ttk.Button(btn_frame, text="↩ Close", command=self._on_close_attempt).pack(side='right', padx=5)
         ttk.Button(btn_frame, text=" Export as Mod", command=self._export_mod).pack(side='left', padx=5)
 
     def _build_properties_tab(self):
@@ -501,7 +537,7 @@ class PropertyEditor:
                 pass
 
         self.on_save(self.obj_data, changes)
-        self.window.destroy()
+        messagebox.showinfo("Saved", f"Changes saved for {self.obj_data.get('name', 'object')}")
 
     def _export_mod(self):
         """Export current changes as a mod package"""
@@ -541,7 +577,7 @@ class PropertyEditor:
 class ModMakerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title(" MU110N")
+        self.root.title(" MU110N - Sheepy: A Short Adventure Editor")
         self.root.geometry("400x500")
         self.root.minsize(350, 400)
 
@@ -549,6 +585,7 @@ class ModMakerApp:
         self.parser = None
         self.overlay = None
         self.game_rect = None
+        self.game_hwnd = None
         self.selected_object = None
         self.editors = []
 
@@ -562,7 +599,7 @@ class ModMakerApp:
 
         ttk.Label(header, text=" MU110N",
                   font=('Segoe UI', 16, 'bold')).pack(anchor='w')
-        ttk.Label(header, text="Click-to-edit overlay for Sheepy",
+        ttk.Label(header, text="Click-to-edit overlay for Sheepy: A Short Adventure",
                   font=('Segoe UI', 9), foreground='gray').pack(anchor='w')
 
         ttk.Separator(self.root, orient='horizontal').pack(fill='x', padx=10)
@@ -571,7 +608,7 @@ class ModMakerApp:
         self.status_frame = ttk.Frame(self.root, padding=15)
         self.status_frame.pack(fill='x')
 
-        self.status_var = tk.StringVar(value=" Scanning for game...")
+        self.status_var = tk.StringVar(value=" Scanning for Sheepy: A Short Adventure...")
         self.status_label = ttk.Label(self.status_frame, textvariable=self.status_var,
                                        font=('Segoe UI', 10))
         self.status_label.pack(anchor='w')
@@ -625,12 +662,12 @@ class ModMakerApp:
         if self.scanner.find_game():
             self._connect_game(self.scanner.game_path)
         else:
-            self.status_var.set(" Game not found")
+            self.status_var.set(" Sheepy: A Short Adventure not found")
             self.path_var.set("Click 'Browse Game Folder' to set path manually")
 
     def _browse_game(self):
         from tkinter import filedialog
-        folder = filedialog.askdirectory(title="Select Sheepy Game Folder")
+        folder = filedialog.askdirectory(title="Select Sheepy: A Short Adventure Folder")
         if folder:
             self._connect_game(Path(folder))
 
@@ -680,14 +717,40 @@ class ModMakerApp:
         if not self.scanner.game_path:
             return
 
-        # Get game window position
+        # Get game window position and handle
         self.game_rect = self.scanner.get_game_rect()
         if not self.game_rect:
-            # Default fallback
-            self.game_rect = (100, 100, 1280, 720)
+            messagebox.showerror("Error", "Could not find Sheepy: A Short Adventure window.\nMake sure the game is running!")
+            return
 
-        # Create overlay
-        self.overlay = GameOverlay(self.root, self.game_rect, self._on_overlay_click)
+        # Get game window handle
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                from ctypes import wintypes
+                
+                def enum_windows_callback(hwnd, extra):
+                    text = ctypes.create_unicode_buffer(256)
+                    ctypes.windll.user32.GetWindowTextW(hwnd, text, 256)
+                    window_title = text.value.lower()
+                    if 'sheepy' in window_title and 'short' in window_title and 'adventure' in window_title:
+                        extra.append(hwnd)
+                    return True
+
+                windows = []
+                EnumWindows = ctypes.windll.user32.EnumWindows
+                EnumWindowsProc = ctypes.WINFUNCTYPE(
+                    ctypes.c_bool, wintypes.HWND, ctypes.POINTER(ctypes.c_int)
+                )
+                EnumWindows(EnumWindowsProc(enum_windows_callback), ctypes.pointer(ctypes.c_int(0)))
+                
+                if windows:
+                    self.game_hwnd = windows[0]
+            except:
+                pass
+
+        # Create overlay with game window handle
+        self.overlay = GameOverlay(self.root, self.game_rect, self.game_hwnd, self._on_overlay_click)
         self.status_var.set(" Click mode active — Right-click overlay to toggle capture")
 
         # Launch game if not running
@@ -702,6 +765,7 @@ class ModMakerApp:
             if exe.exists():
                 subprocess.Popen([str(exe)], cwd=str(self.scanner.game_path))
             elif html.exists():
+                import webbrowser
                 webbrowser.open(str(html.resolve()))
 
     def _on_overlay_click(self, x, y):
