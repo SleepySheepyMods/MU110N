@@ -97,8 +97,27 @@ class ConstructDataParser:
         self.layouts = {}
         self.event_sheets = {}
 
+        # Auto-create data.json if it doesn't exist
+        if not self.data_file.exists():
+            self._create_default_data()
+        
         if self.data_file.exists():
             self.load_data()
+
+    def _create_default_data(self):
+        """Create a default data.json file if it doesn't exist"""
+        try:
+            default_data = {
+                "version": "1.0.0",
+                "objectTypes": [],
+                "layouts": [],
+                "eventSheets": []
+            }
+            with open(self.data_file, 'w', encoding='utf-8') as f:
+                json.dump(default_data, f, indent=2)
+            print(f"Created default data.json at {self.data_file}")
+        except Exception as e:
+            print(f"Error creating data.json: {e}")
 
     def load_data(self):
         """Parse Construct 3 project data.json"""
