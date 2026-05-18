@@ -62,14 +62,17 @@ class GameScanner:
                 import ctypes
                 from ctypes import wintypes
 
-                # Find window by exact title match
+                # Find window by looking for any Sheepy window
                 def enum_windows_callback(hwnd, extra):
-                    text = ctypes.create_unicode_buffer(256)
-                    ctypes.windll.user32.GetWindowTextW(hwnd, text, 256)
-                    window_title = text.value.lower()
-                    # Only match Sheepy: A Short Adventure
-                    if 'sheepy' in window_title and 'short' in window_title and 'adventure' in window_title:
-                        extra.append(hwnd)
+                    try:
+                        text = ctypes.create_unicode_buffer(256)
+                        ctypes.windll.user32.GetWindowTextW(hwnd, text, 256)
+                        window_title = text.value.lower()
+                        # Match any window with "sheepy" in title
+                        if 'sheepy' in window_title:
+                            extra.append((hwnd, text.value))
+                    except:
+                        pass
                     return True
 
                 windows = []
@@ -80,12 +83,28 @@ class GameScanner:
                 EnumWindows(EnumWindowsProc(enum_windows_callback), ctypes.pointer(ctypes.c_int(0)))
 
                 if windows:
-                    self.hwnd = windows[0]
+                    self.hwnd = windows[0][0]
+                    print(f"Found Sheepy window: {windows[0][1]}")
                     rect = ctypes.wintypes.RECT()
                     ctypes.windll.user32.GetWindowRect(self.hwnd, ctypes.byref(rect))
                     return (rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
-            except:
-                pass
+                else:
+                    print("No Sheepy window found. Available windows:")
+                    # Debug: list all windows
+                    def enum_all_windows(hwnd, extra):
+                        try:
+                            text = ctypes.create_unicode_buffer(256)
+                            ctypes.windll.user32.GetWindowTextW(hwnd, text, 256)
+                            if text.value.strip():
+                                print(f"  - {text.value}")
+                        except:
+                            pass
+                        return True
+                    EnumWindows(EnumWindowsProc(enum_all_windows), ctypes.pointer(ctypes.c_int(0)))
+            except Exception as e:
+                print(f"Error getting game rect: {e}")
+                import traceback
+                traceback.print_exc()
         return None
 
 #
@@ -720,34 +739,11 @@ class ModMakerApp:
         # Get game window position and handle
         self.game_rect = self.scanner.get_game_rect()
         if not self.game_rect:
-            messagebox.showerror("Error", "Could not find Sheepy: A Short Adventure window.\nMake sure the game is running!")
+            messagebox.showerror("Error", "Could not find Sheepy window.\n\nMake sure Sheepy: A Short Adventure is open and running.\n\nDebug info: Check the console output for available windows.")
             return
 
-        # Get game window handle
-        if sys.platform == "win32":
-            try:
-                import ctypes
-                from ctypes import wintypes
-                
-                def enum_windows_callback(hwnd, extra):
-                    text = ctypes.create_unicode_buffer(256)
-                    ctypes.windll.user32.GetWindowTextW(hwnd, text, 256)
-                    window_title = text.value.lower()
-                    if 'sheepy' in window_title and 'short' in window_title and 'adventure' in window_title:
-                        extra.append(hwnd)
-                    return True
-
-                windows = []
-                EnumWindows = ctypes.windll.user32.EnumWindows
-                EnumWindowsProc = ctypes.WINFUNCTYPE(
-                    ctypes.c_bool, wintypes.HWND, ctypes.POINTER(ctypes.c_int)
-                )
-                EnumWindows(EnumWindowsProc(enum_windows_callback), ctypes.pointer(ctypes.c_int(0)))
-                
-                if windows:
-                    self.game_hwnd = windows[0]
-            except:
-                pass
+        # Store the window handle we found
+        self.game_hwnd = self.scanner.hwnd
 
         # Create overlay with game window handle
         self.overlay = GameOverlay(self.root, self.game_rect, self.game_hwnd, self._on_overlay_click)
