@@ -215,6 +215,111 @@ class BlockPropertyEditor:
         self.window.destroy()
 
 #
+# TUTORIAL DIALOG
+#
+class TutorialDialog:
+    def __init__(self, parent):
+        self.parent = parent
+        self.win = tk.Toplevel(parent)
+        self.win.title("MU110N Tutorial")
+        self.win.geometry("600x400")
+        self.win.transient(parent)
+
+        self.pages = [
+            {
+                "title": "Welcome",
+                "text": (
+                    "Welcome to MU110N Visual Mod Builder for Sheepy!\n\n"
+                    "This tutorial will walk you through creating a simple mod using blocks.\n\n"
+                    "Click Next to continue."
+                )
+            },
+            {
+                "title": "Palette",
+                "text": (
+                    "Block Palette:\n\n"
+                    "Use the palette on the left to add blocks to the canvas.\n"
+                    "Each block represents an element (Player, Enemy, Item, Platform, Trigger, Event, Action).\n\n"
+                    "Click a block type to add it to the editor canvas."
+                )
+            },
+            {
+                "title": "Positioning",
+                "text": (
+                    "Positioning Blocks:\n\n"
+                    "Drag blocks to position them on the canvas.\n"
+                    "Click a block to select it (gold border).\n\n"
+                    "You can arrange blocks visually to represent your level or mod layout."
+                )
+            },
+            {
+                "title": "Editing Properties",
+                "text": (
+                    "Editing Properties:\n\n"
+                    "Right-click a block to open the property editor.\n"
+                    "Add or change key-value properties that will be included in the exported mod.json.\n\n"
+                    "For example, set a Player speed property or an Enemy health property."
+                )
+            },
+            {
+                "title": "Save & Load",
+                "text": (
+                    "Save & Load Projects:\n\n"
+                    "Use the toolbar buttons to save your project to a .json file and load it later.\n\n"
+                    "This preserves block positions and properties."
+                )
+            },
+            {
+                "title": "Export as Mod",
+                "text": (
+                    "Exporting:\n\n"
+                    "When you're ready, Export as Mod to create a mod folder containing a mod.json file.\n"
+                    "You can further refine mod.json to match Sheepy's expected structure or I can add automatic mapping.\n\n"
+                    "That's it — enjoy building mods!"
+                )
+            }
+        ]
+
+        self.index = 0
+
+        # UI
+        self.title_label = ttk.Label(self.win, text="", font=("Segoe UI", 14, "bold"))
+        self.title_label.pack(pady=(10, 5))
+        self.text_area = tk.Text(self.win, wrap='word', font=("Segoe UI", 10), state='disabled')
+        self.text_area.pack(fill='both', expand=True, padx=10, pady=5)
+
+        nav = ttk.Frame(self.win)
+        nav.pack(fill='x', pady=10)
+        self.prev_btn = ttk.Button(nav, text="← Previous", command=self.prev_page)
+        self.prev_btn.pack(side='left', padx=10)
+        self.next_btn = ttk.Button(nav, text="Next →", command=self.next_page)
+        self.next_btn.pack(side='right', padx=10)
+        ttk.Button(nav, text="Close", command=self.win.destroy).pack(side='right')
+
+        self._show_page()
+
+    def _show_page(self):
+        page = self.pages[self.index]
+        self.title_label.config(text=page['title'])
+        self.text_area.config(state='normal')
+        self.text_area.delete('1.0', 'end')
+        self.text_area.insert('1.0', page['text'])
+        self.text_area.config(state='disabled')
+        # update buttons
+        self.prev_btn.config(state='normal' if self.index > 0 else 'disabled')
+        self.next_btn.config(state='normal' if self.index < len(self.pages)-1 else 'disabled')
+
+    def next_page(self):
+        if self.index < len(self.pages)-1:
+            self.index += 1
+            self._show_page()
+
+    def prev_page(self):
+        if self.index > 0:
+            self.index -= 1
+            self._show_page()
+
+#
 # MAIN APPLICATION
 #
 class ModBuilderApp:
@@ -232,6 +337,13 @@ class ModBuilderApp:
     
     def _build_ui(self):
         """Build the UI"""
+        # Add menu bar with Tutorial under Help so it's always visible
+        menubar = tk.Menu(self.root)
+        helpmenu = tk.Menu(menubar, tearoff=0)
+        helpmenu.add_command(label="Tutorial", command=self._show_tutorial)
+        menubar.add_cascade(label="Help", menu=helpmenu)
+        self.root.config(menu=menubar)
+
         # Main frame
         main_frame = ttk.Frame(self.root)
         main_frame.pack(fill="both", expand=True, padx=5, pady=5)
@@ -244,6 +356,8 @@ class ModBuilderApp:
         ttk.Button(toolbar, text="💾 Save Project", command=self._save_project).pack(side="left", padx=5)
         ttk.Button(toolbar, text="📂 Load Project", command=self._load_project).pack(side="left", padx=5)
         ttk.Button(toolbar, text="📦 Export as Mod", command=self._export_mod).pack(side="left", padx=5)
+        # Make tutorial button larger and always visible
+        ttk.Button(toolbar, text="❓ Tutorial", command=self._show_tutorial).pack(side="left", padx=5)
         ttk.Button(toolbar, text="❌ Clear All", command=self._clear_all).pack(side="left", padx=5)
         
         # Main content area
@@ -408,6 +522,20 @@ class ModBuilderApp:
             self.canvas.delete("block")
             self.blocks = []
     
+    def _on_canvas_double_click(self, event):
+        """Open property editor for the block under the cursor (if any)"""
+        clicked_items = self.canvas.find_overlapping(event.x - 2, event.y - 2, event.x + 2, event.y + 2)
+        for item_id in clicked_items:
+            tags = self.canvas.gettags(item_id)
+            if "block" in tags:
+                for block in self.blocks:
+                    if str(id(block)) in tags:
+                        BlockPropertyEditor(self.root, block)
+                        return
+
+    def _show_tutorial(self):
+        TutorialDialog(self.root)
+
     def _create_tooltip(self, widget, text):
         """Create hover tooltip"""
         def on_enter(event):
