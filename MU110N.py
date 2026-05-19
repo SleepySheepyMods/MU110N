@@ -292,11 +292,19 @@ class TutorialDialog:
         nav.pack(fill='x', pady=10)
         self.prev_btn = ttk.Button(nav, text="← Previous", command=self.prev_page)
         self.prev_btn.pack(side='left', padx=10)
-        self.next_btn = ttk.Button(nav, text="Next →", command=self.next_page)
-        self.next_btn.pack(side='right', padx=10)
-        self.finish_btn = ttk.Button(nav, text="Finish", command=self.win.destroy)
-        # finish_btn will be packed when we reach the last page
-        ttk.Button(nav, text="Close", command=self.win.destroy).pack(side='right')
+        
+        # Create a frame for right-side buttons to manage spacing
+        right_nav = ttk.Frame(nav)
+        right_nav.pack(side='right', padx=10)
+        
+        self.close_btn = ttk.Button(right_nav, text="Close", command=self.win.destroy)
+        self.close_btn.pack(side='right', padx=5)
+        
+        self.next_btn = ttk.Button(right_nav, text="Next →", command=self.next_page)
+        self.next_btn.pack(side='right', padx=5)
+        
+        self.finish_btn = ttk.Button(right_nav, text="Finish", command=self.win.destroy)
+        # finish_btn will be shown when we reach the last page
 
         self._show_page()
 
@@ -313,11 +321,11 @@ class TutorialDialog:
         
         # On last page, show Finish button; otherwise show Next button
         if self.index < len(self.pages) - 1:
-            self.next_btn.pack(side='right', padx=10)
+            self.next_btn.pack(side='right', padx=5)
             self.finish_btn.pack_forget()
         else:
             self.next_btn.pack_forget()
-            self.finish_btn.pack(side='right', padx=10)
+            self.finish_btn.pack(side='right', padx=5)
 
     def next_page(self):
         if self.index < len(self.pages) - 1:
