@@ -5,7 +5,7 @@ Drag-and-drop interface to create and edit game mods - No overlay required!
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox, filedialog, simpledialog
 from pathlib import Path
 import json
 import shutil
@@ -108,6 +108,7 @@ class DragDropHandler:
         self.canvas.bind("<Button-1>", self.on_mouse_down)
         self.canvas.bind("<B1-Motion>", self.on_mouse_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_mouse_up)
+        self.canvas.bind("<Button-3>", self.on_right_click)
     
     def on_mouse_down(self, event):
         """Handle mouse down"""
@@ -144,6 +145,74 @@ class DragDropHandler:
     def on_mouse_up(self, event):
         """Handle mouse up"""
         self.dragging_block = None
+
+    def on_right_click(self, event):
+        """Open property editor for clicked block"""
+        clicked_items = self.canvas.find_overlapping(
+            event.x - 2, event.y - 2, event.x + 2, event.y + 2
+        )
+        for item_id in clicked_items:
+            tags = self.canvas.gettags(item_id)
+            if "block" in tags:
+                for block in self.blocks_list:
+                    if str(id(block)) in tags:
+                        BlockPropertyEditor(self.canvas.master, block)
+                        return
+
+#
+# PROPERTY EDITOR FOR BLOCKS
+#
+class BlockPropertyEditor:
+    def __init__(self, master, block):
+        self.master = master
+        self.block = block
+        self.window = tk.Toplevel(master)
+        self.window.title(f"Properties - {block.block_type}")
+        self.window.geometry("360x320")
+        self.window.transient(master)
+
+        self._build_ui()
+
+    def _build_ui(self):
+        frame = ttk.Frame(self.window, padding=10)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text=f"{self.block.block_type} Properties", font=("Segoe UI", 12, "bold")).pack(pady=(0,10))
+
+        # Name / Label
+        ttk.Label(frame, text="Label:").pack(anchor='w')
+        self.label_var = tk.StringVar(value=self.block.properties.get('label', self.block.block_type))
+        ttk.Entry(frame, textvariable=self.label_var).pack(fill='x', pady=5)
+
+        # Custom properties area
+        ttk.Label(frame, text="Custom Properties (key=value, one per line):").pack(anchor='w', pady=(10,0))
+        self.props_text = tk.Text(frame, height=8)
+        self.props_text.pack(fill='both', expand=True)
+
+        # Load existing properties
+        props = self.block.properties.get('custom', {})
+        for k, v in props.items():
+            self.props_text.insert('end', f"{k}={v}\n")
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(fill='x', pady=10)
+
+        ttk.Button(btn_frame, text="Save", command=self._save).pack(side='right', padx=5)
+        ttk.Button(btn_frame, text="Close", command=self.window.destroy).pack(side='right')
+
+    def _save(self):
+        # Save label
+        self.block.properties['label'] = self.label_var.get()
+        # Parse custom properties
+        text = self.props_text.get('1.0', 'end').strip()
+        custom = {}
+        for line in text.splitlines():
+            if '=' in line:
+                k, v = line.split('=', 1)
+                custom[k.strip()] = v.strip()
+        self.block.properties['custom'] = custom
+        messagebox.showinfo("Saved", "Properties saved")
+        self.window.destroy()
 
 #
 # MAIN APPLICATION
