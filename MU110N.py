@@ -294,6 +294,8 @@ class TutorialDialog:
         self.prev_btn.pack(side='left', padx=10)
         self.next_btn = ttk.Button(nav, text="Next →", command=self.next_page)
         self.next_btn.pack(side='right', padx=10)
+        self.finish_btn = ttk.Button(nav, text="Finish", command=self.win.destroy)
+        # finish_btn will be packed when we reach the last page
         ttk.Button(nav, text="Close", command=self.win.destroy).pack(side='right')
 
         self._show_page()
@@ -305,12 +307,20 @@ class TutorialDialog:
         self.text_area.delete('1.0', 'end')
         self.text_area.insert('1.0', page['text'])
         self.text_area.config(state='disabled')
+        
         # update buttons
         self.prev_btn.config(state='normal' if self.index > 0 else 'disabled')
-        self.next_btn.config(state='normal' if self.index < len(self.pages)-1 else 'disabled')
+        
+        # On last page, show Finish button; otherwise show Next button
+        if self.index < len(self.pages) - 1:
+            self.next_btn.pack(side='right', padx=10)
+            self.finish_btn.pack_forget()
+        else:
+            self.next_btn.pack_forget()
+            self.finish_btn.pack(side='right', padx=10)
 
     def next_page(self):
-        if self.index < len(self.pages)-1:
+        if self.index < len(self.pages) - 1:
             self.index += 1
             self._show_page()
 
