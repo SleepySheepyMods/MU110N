@@ -288,23 +288,24 @@ class TutorialDialog:
         self.text_area = tk.Text(self.win, wrap='word', font=("Segoe UI", 10), state='disabled')
         self.text_area.pack(fill='both', expand=True, padx=10, pady=5)
 
+        # Navigation bar
         nav = ttk.Frame(self.win)
-        nav.pack(fill='x', pady=10)
+        nav.pack(fill='x', pady=10, padx=10)
+        
+        # Left button
         self.prev_btn = ttk.Button(nav, text="← Previous", command=self.prev_page)
-        self.prev_btn.pack(side='left', padx=10)
+        self.prev_btn.pack(side='left', padx=5)
         
-        # Create a frame for right-side buttons to manage spacing
-        right_nav = ttk.Frame(nav)
-        right_nav.pack(side='right', padx=10)
+        # Right buttons frame
+        right_frame = ttk.Frame(nav)
+        right_frame.pack(side='right')
         
-        self.close_btn = ttk.Button(right_nav, text="Close", command=self.win.destroy)
-        self.close_btn.pack(side='right', padx=5)
+        self.next_btn = ttk.Button(right_frame, text="Next →", command=self.next_page)
+        self.next_btn.pack(side='left', padx=5)
         
-        self.next_btn = ttk.Button(right_nav, text="Next →", command=self.next_page)
-        self.next_btn.pack(side='right', padx=5)
+        self.finish_btn = ttk.Button(right_frame, text="Finish", command=self.win.destroy)
         
-        self.finish_btn = ttk.Button(right_nav, text="Finish", command=self.win.destroy)
-        # finish_btn will be shown when we reach the last page
+        ttk.Button(right_frame, text="Close", command=self.win.destroy).pack(side='left', padx=5)
 
         self._show_page()
 
@@ -316,16 +317,16 @@ class TutorialDialog:
         self.text_area.insert('1.0', page['text'])
         self.text_area.config(state='disabled')
         
-        # update buttons
+        # Update button states
         self.prev_btn.config(state='normal' if self.index > 0 else 'disabled')
         
-        # On last page, show Finish button; otherwise show Next button
+        # Show Next button on non-final pages, Finish button on final page
         if self.index < len(self.pages) - 1:
-            self.next_btn.pack(side='right', padx=5)
+            self.next_btn.pack(side='left', padx=5)
             self.finish_btn.pack_forget()
         else:
             self.next_btn.pack_forget()
-            self.finish_btn.pack(side='right', padx=5)
+            self.finish_btn.pack(side='left', padx=5)
 
     def next_page(self):
         if self.index < len(self.pages) - 1:
